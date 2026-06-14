@@ -521,8 +521,5 @@ Sending multiple transactions in a single prompt:
 
 ---
 
-# Author
-
-Prashanth Hosamani
-
+Prashanth
 Backend Engineer | Python | Django | PostgreSQL | Redis | Celery | Docker
