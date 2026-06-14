@@ -1,0 +1,55 @@
+services:
+
+  db:
+    image: postgres:17
+
+    environment:
+      POSTGRES_DB: txnflow
+      POSTGRES_USER: txnflow
+      POSTGRES_PASSWORD: txnflow
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+
+  web:
+    build: .
+
+    command: >
+      sh -c "
+      python manage.py migrate &&
+      gunicorn TxnFlow.wsgi:application --bind 0.0.0.0:8000
+      "
+
+    volumes:
+      - .:/app
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    depends_on:
+      - db
+      - redis
+
+  celery:
+    build: .
+
+    command: celery -A TxnFlow worker -l info
+
+    volumes:
+      - .:/app
+
+    env_file:
+      - .env
+
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:

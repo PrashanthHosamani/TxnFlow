@@ -44,11 +44,13 @@ class JobSummary(models.Model):
     job = models.OneToOneField(Job, on_delete=models.CASCADE, related_name='job_summary')
     total_spend_inr = models.DecimalField(max_digits=15, decimal_places=2)
     total_spend_usd = models.DecimalField(max_digits=15, decimal_places=2)
-    top_merchants = models.JSONField()
+    top_merchants = models.JSONField(default=list)
     anomaly_count = models.IntegerField()
-    narrative = models.TextField()
+    narrative = models.TextField(blank=True, null = True)
     risk_level = models.CharField(max_length=255)
     
+
+
     
     
     
