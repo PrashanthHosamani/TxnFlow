@@ -14,6 +14,15 @@ The system accepts transaction files, performs data cleaning and validation, det
 
 The entire application is containerized using Docker and orchestrated through Docker Compose.
 
+## System Architecture Diagram
+<img width="2512" height="1184" alt="image (32)" src="https://github.com/user-attachments/assets/729d8d1c-0a94-4327-8eb2-16a8125aa086" />
+
+## Database ER Diagram
+<img width="1256" height="1184" alt="image (33)" src="https://github.com/user-attachments/assets/a802fd7e-b9f2-4919-9389-6d8abeba9480" />
+
+## Request Lifecycle Diagram
+<img width="1256" height="1184" alt="image (34)" src="https://github.com/user-attachments/assets/a5bf4cf9-5470-43ed-8e8d-24102026542a" />
+
 ---
 
 ## Features
