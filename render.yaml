@@ -47,10 +47,10 @@ services:
       - key: GEMINI_API_KEY
         sync: false
 
-databases:
-  - name: txnflow-db
-    plan: free
-
   - type: redis
     name: txnflow-redis
+    plan: free
+
+databases:
+  - name: txnflow-db
     plan: free
