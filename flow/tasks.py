@@ -409,6 +409,10 @@ def process_job(job_id):
             ]
         )
 
+        # SAFETY LIMIT FOR FREE TIER: Cap at 1000 rows to prevent OOM
+        if len(df_clean) > 1000:
+            df_clean = df_clean.head(1000)
+
         job.row_count_clean = len(
             df_clean
         )
@@ -429,12 +433,17 @@ def process_job(job_id):
         # Don't call LLM if there's nothing to classify
         merchant_category_map = {}
         if unique_merchants_list:
-            rows_for_llm = [{"merchant": m} for m in unique_merchants_list]
-            llm_categories = classify_categories(rows_for_llm)
-            
-            for i, m in enumerate(unique_merchants_list):
-                if i < len(llm_categories):
-                    merchant_category_map[m] = llm_categories[i]
+            # Chunk into batches of 50 to prevent massive memory spikes and Gemini limits
+            chunk_size = 50
+            for i in range(0, len(unique_merchants_list), chunk_size):
+                chunk = unique_merchants_list[i:i + chunk_size]
+                rows_for_llm = [{"merchant": m} for m in chunk]
+                
+                llm_categories = classify_categories(rows_for_llm)
+                
+                for j, m in enumerate(chunk):
+                    if j < len(llm_categories):
+                        merchant_category_map[m] = llm_categories[j]
 
         account_medians = (
 
