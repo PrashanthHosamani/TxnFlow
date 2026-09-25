@@ -4,9 +4,6 @@ import axios from 'axios';
 // In development, leave it empty — Vite's proxy in vite.config.js
 // will forward all /api/* requests to the Django 'web' service internally.
 const BASE_URL = 'https://txnflow-backend.onrender.com';
-if (BASE_URL && !BASE_URL.startsWith('http')) {
-  BASE_URL = 'https://' + BASE_URL;
-}
 
 const api = axios.create({
   baseURL: BASE_URL,
