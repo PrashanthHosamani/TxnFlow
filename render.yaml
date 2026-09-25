@@ -49,6 +49,7 @@ services:
 
   - type: redis
     name: txnflow-redis
+    ipAllowList: []
     plan: free
 
 databases:
