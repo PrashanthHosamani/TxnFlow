@@ -51,5 +51,28 @@ services:
       - db
       - redis
 
+  # ─── Frontend ─────────────────────────────────────────────────────
+  # Runs the Vite dev server inside Docker.
+  # All /api requests from the browser hit localhost:5173/api,
+  # Vite's proxy intercepts them and forwards to http://web:8000/api
+  # ('web' is Docker Compose's internal DNS name for the Django service).
+  # The browser never knows about port 8000.
+  frontend:
+    image: node:20
+
+    working_dir: /app
+
+    command: sh -c "npm install && npm run dev"
+
+    volumes:
+      - ./frontend:/app          # mounts your local frontend/ folder into the container
+      - /app/node_modules        # anonymous volume so container's node_modules isn't overwritten
+
+    ports:
+      - "5173:5173"              # expose Vite dev server to your host machine
+
+    depends_on:
+      - web                      # wait for Django to be up before starting
+
 volumes:
   postgres_data:

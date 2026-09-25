@@ -9,8 +9,9 @@ class UploadJobSerializer(serializers.ModelSerializer):
         
     def validate_file(self, file):
         ext = os.path.splitext(file.name)[1]
-        if ext.lower() != '.csv':
-            raise serializers.ValidationError("Only CSV files are allowed.")
+        valid_extensions = ['.csv', '.xls', '.xlsx']
+        if ext.lower() not in valid_extensions:
+            raise serializers.ValidationError("Only CSV and Excel files (.xls, .xlsx) are allowed.")
         
         if file.size > 10 * 1024 * 1024:
             raise serializers.ValidationError("Please upload files within 10 MB")
@@ -35,7 +36,9 @@ class JobStatusSerializer(serializers.ModelSerializer):
 
             'created_at',
 
-            'completed_at'
+            'completed_at',
+
+            'error_message'
 
         ]
 

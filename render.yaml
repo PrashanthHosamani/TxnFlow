@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: txnflow-backend
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python manage.py migrate && gunicorn TxnFlow.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: txnflow-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: txnflow-redis
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+
+  - type: web
+    name: txnflow-frontend
+    env: static
+    buildCommand: "npm install --prefix frontend && npm run build --prefix frontend"
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: txnflow-backend
+          property: host
+
+  - type: worker
+    name: txnflow-celery
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "celery -A TxnFlow worker -l info"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: txnflow-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: txnflow-redis
+          property: connectionString
+      - key: GEMINI_API_KEY
+        sync: false
+
+databases:
+  - name: txnflow-db
+    plan: free
+
+  - type: redis
+    name: txnflow-redis
+    plan: free

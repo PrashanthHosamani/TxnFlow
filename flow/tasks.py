@@ -217,9 +217,78 @@ def process_job(job_id):
         job.status = "PROCESSING"
         job.save()
 
-        df = pd.read_csv(
-            job.file.path
-        )
+        import os
+        ext = os.path.splitext(job.file.name)[1].lower()
+        if ext in ['.xls', '.xlsx']:
+            df = pd.read_excel(job.file.path)
+        else:
+            try:
+                df = pd.read_csv(job.file.path, encoding="utf-8")
+            except UnicodeDecodeError:
+                try:
+                    df = pd.read_csv(job.file.path, encoding="ISO-8859-1")
+                except UnicodeDecodeError:
+                    df = pd.read_csv(job.file.path, encoding="cp1252")
+
+        # Bank statements often have metadata rows at the top. Dynamically find the real header row.
+        current_cols = " ".join([str(c).lower() for c in df.columns])
+        header_idx = None
+        if not any(x in current_cols for x in ['date', 'amount', 'debit', 'txn', 'transaction']):
+            for i in range(min(20, len(df))):
+                row_str = " ".join([str(x).lower() for x in df.iloc[i].values])
+                if any(x in row_str for x in ['date', 'amount', 'debit', 'txn', 'transaction']) and any(x in row_str for x in ['balance', 'ref', 'details', 'particulars', 'credit']):
+                    header_idx = i
+                    break
+        if header_idx is not None:
+            new_cols = df.iloc[header_idx]
+            df = df.iloc[header_idx+1:].reset_index(drop=True)
+            df.columns = new_cols
+
+        # Normalize column names: lowercase, strip whitespace, replace spaces/dashes/dots with underscores
+        df.columns = df.columns.astype(str).str.lower().str.strip().str.replace(' ', '_').str.replace('-', '_').str.replace('.', '')
+
+        # Map common aliases to our required schema
+        column_map = {
+            'transactionid': 'txn_id',
+            'transaction_id': 'txn_id',
+            'id': 'txn_id',
+            'transactiondate': 'date',
+            'transaction_date': 'date',
+            'datetime': 'date',
+            'customerid': 'account_id',
+            'customer_id': 'account_id',
+            'client_id': 'account_id',
+            'accountid': 'account_id',
+            'totalvalue': 'amount',
+            'total_value': 'amount',
+            'price': 'amount',
+            'value': 'amount',
+            'cost': 'amount',
+            'vendor': 'merchant',
+            'merchant_name': 'merchant',
+            'ref_no': 'txn_id',
+            'details': 'merchant',
+            'particulars': 'merchant'
+        }
+        df = df.rename(columns=column_map)
+        
+        # Drop duplicate columns (e.g. if both 'TotalValue' and 'Price' mapped to 'amount')
+        df = df.loc[:, ~df.columns.duplicated()]
+
+        # Handle Debit/Credit columns if Amount is missing
+        if 'amount' not in df.columns:
+            if 'debit' in df.columns and 'credit' in df.columns:
+                df['amount'] = df['debit'].fillna(df['credit'])
+
+        # Handle missing account_id (often found in dropped metadata)
+        if 'account_id' not in df.columns:
+            df['account_id'] = 'ACT-0000'
+
+        # Default currency to INR if not specified
+        if 'currency' not in df.columns:
+            df['currency'] = 'INR'
+        else:
+            df['currency'] = df['currency'].fillna('INR')
 
         job.row_count = len(df)
 
@@ -243,8 +312,8 @@ def process_job(job_id):
         if missing_columns:
 
             raise ValueError(
-                f"Missing required columns: "
-                f"{missing_columns}"
+                "This doesn't look like a valid financial transactions file. "
+                f"We couldn't find columns for: {', '.join(missing_columns)}."
             )
 
         if "txn_id" in df.columns:
@@ -346,48 +415,26 @@ def process_job(job_id):
 
         job.save()
 
-        rows_for_llm = []
-
+        # Optimize LLM calls by only classifying UNIQUE merchants
+        unique_merchants_set = set()
         for _, row in df_clean.iterrows():
-
-            category = row.get(
-                "category"
-            )
-
-            if (
-
-                pd.isna(category)
-
-                or category == ""
-
-                or category == "Uncategorised"
-
-            ):
-
-                rows_for_llm.append({
-
-                    "merchant":
-                        str(
-                            row.get(
-                                "merchant",
-                                ""
-                            )
-                        ),
-
-                    "amount":
-                        str(
-                            row.get(
-                                "amount",
-                                ""
-                            )
-                        )
-                })
-
-        llm_categories = classify_categories(
-            rows_for_llm
-        )
-
-        classification_index = 0
+            category = row.get("category")
+            if pd.isna(category) or category == "" or category == "Uncategorised":
+                merchant_val = str(row.get("merchant", "")).strip()
+                if merchant_val:
+                    unique_merchants_set.add(merchant_val)
+                    
+        unique_merchants_list = list(unique_merchants_set)
+        
+        # Don't call LLM if there's nothing to classify
+        merchant_category_map = {}
+        if unique_merchants_list:
+            rows_for_llm = [{"merchant": m} for m in unique_merchants_list]
+            llm_categories = classify_categories(rows_for_llm)
+            
+            for i, m in enumerate(unique_merchants_list):
+                if i < len(llm_categories):
+                    merchant_category_map[m] = llm_categories[i]
 
         account_medians = (
 
@@ -519,48 +566,22 @@ def process_job(job_id):
                 else None
             )
 
-            current_category = row.get(
-                "category"
-            )
+            current_category = row.get("category")
 
             llm_category = None
-
             llm_raw_response = None
-
             llm_failed = False
 
-            if current_category == "Uncategorised":
-
-                if (
-
-                    classification_index
-                    <
-                    len(llm_categories)
-
-                ):
-
-                    llm_category = (
-
-                        llm_categories[
-                            classification_index
-                        ]
-                    )
-
-                    current_category = (
-                        llm_category
-                    )
-
-                    llm_raw_response = (
-                        json.dumps(
-                            llm_category
-                        )
-                    )
-
-                    classification_index += 1
-
+            if pd.isna(current_category) or current_category == "" or current_category == "Uncategorised":
+                merchant_val = str(row.get("merchant", "")).strip()
+                
+                if merchant_val in merchant_category_map:
+                    llm_category = merchant_category_map[merchant_val]
+                    current_category = llm_category
+                    llm_raw_response = json.dumps(llm_category)
                 else:
-
                     llm_failed = True
+                    current_category = "Other"
 
             transaction_objects.append(
 
@@ -588,9 +609,7 @@ def process_job(job_id):
                         "currency"
                     ),
 
-                    status=row.get(
-                        "status"
-                    ),
+                    status=str(row.get("status", "SUCCESS")) if pd.notna(row.get("status")) and row.get("status") != "" else "SUCCESS",
 
                     category=current_category,
 
@@ -742,6 +761,7 @@ def process_job(job_id):
             )
 
             job.status = "FAILED"
+            job.error_message = str(e)
             job.save()
 
         except Exception:

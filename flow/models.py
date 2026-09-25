@@ -15,6 +15,7 @@ class Job(models.Model):
     row_count_clean = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null = True, blank = True)
+    error_message = models.TextField(null=True, blank=True)
     
     def save(self, *args, **kwargs):
         if self.status == 'COMPLETED' and not self.completed_at:
