@@ -116,7 +116,7 @@ function UploadView({ onJobCreated }) {
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '4rem 2rem 6rem' }}>
 
       {/* Hero copy */}
-      <div className="anim-up" style={{ marginBottom: '3rem' }}>
+      <div style={{ marginBottom: '3rem' }}>
         <div className="row" style={{ gap: '0.5rem', marginBottom: '1.25rem' }}>
           <span className="tag tag-violet" style={{ fontSize: '0.7rem' }}>AI-powered</span>
           <span style={{ color: 'var(--ink-4)', fontSize: '0.75rem' }}>·</span>
@@ -147,12 +147,12 @@ function UploadView({ onJobCreated }) {
       </div>
 
       {/* Upload box */}
-      <div className="anim-up" style={{ animationDelay: '80ms' }}>
+      <div style={{ animationDelay: '80ms' }}>
         <UploadZone onJobCreated={onJobCreated} />
       </div>
 
       {/* Footer hints */}
-      <div className="anim-up" style={{ animationDelay: '160ms', marginTop: '2.5rem', display: 'flex', gap: '1.75rem', flexWrap: 'wrap' }}>
+      <div style={{ animationDelay: '160ms', marginTop: '2.5rem', display: 'flex', gap: '1.75rem', flexWrap: 'wrap' }}>
         {[
           { label: 'Anomaly detection', desc: 'Flags unusual patterns' },
           { label: 'AI categorisation', desc: 'Powered by Gemini' },
